@@ -1,0 +1,88 @@
+import type { SimulationFrame, VehicleUpdate } from "./types";
+
+const names = ["Ava Chen", "Marco Reed", "Samira Holt", "Diego Cruz", "Nina Patel", "Theo Banks"];
+const passengers = ["L. Morgan", "J. Avery", "M. Stone", "R. Hayes", "K. Brooks", "T. Fisher"];
+const center = { lat: 40.758, lng: -73.9855 };
+
+const routes = [
+  [
+    { lat: 40.7484, lng: -73.9857 },
+    { lat: 40.7527, lng: -73.9772 },
+    { lat: 40.758, lng: -73.973 },
+    { lat: 40.7648, lng: -73.9808 },
+  ],
+  [
+    { lat: 40.7359, lng: -74.0036 },
+    { lat: 40.742, lng: -73.9969 },
+    { lat: 40.7492, lng: -73.9875 },
+    { lat: 40.7557, lng: -73.9787 },
+  ],
+  [
+    { lat: 40.7708, lng: -73.9822 },
+    { lat: 40.7667, lng: -73.9734 },
+    { lat: 40.759, lng: -73.969 },
+    { lat: 40.7505, lng: -73.9934 },
+  ],
+  [
+    { lat: 40.7295, lng: -73.9965 },
+    { lat: 40.7364, lng: -73.9904 },
+    { lat: 40.744, lng: -73.982 },
+    { lat: 40.7519, lng: -73.9771 },
+  ],
+  [
+    { lat: 40.7829, lng: -73.9654 },
+    { lat: 40.7751, lng: -73.9706 },
+    { lat: 40.7673, lng: -73.9819 },
+    { lat: 40.7591, lng: -73.9845 },
+  ],
+  [
+    { lat: 40.7061, lng: -74.0086 },
+    { lat: 40.715, lng: -74.003 },
+    { lat: 40.724, lng: -73.994 },
+    { lat: 40.7339, lng: -73.9908 },
+  ],
+];
+
+function interpolate(route: { lat: number; lng: number }[], progress: number) {
+  const scaled = progress * (route.length - 1);
+  const startIndex = Math.min(Math.floor(scaled), route.length - 2);
+  const local = scaled - startIndex;
+  const start = route[startIndex];
+  const end = route[startIndex + 1];
+  return {
+    lat: start.lat + (end.lat - start.lat) * local,
+    lng: start.lng + (end.lng - start.lng) * local,
+  };
+}
+
+export function createFallbackFrame(tick: number): SimulationFrame {
+  const vehicles: VehicleUpdate[] = routes.map((route, index) => {
+    const phase = (tick * (0.007 + index * 0.0014) + index * 0.13) % 1;
+    const delay = Math.max(0, Math.round(Math.sin(tick / 16 + index) * 3 + index * 0.35));
+    const state = phase > 0.92 ? "dropoff" : phase > 0.48 ? "en_route" : phase > 0.38 ? "pickup" : "assigned";
+    return {
+      id: `RS-${101 + index}`,
+      driver: names[index],
+      passenger: passengers[index],
+      vehicle: ["Tesla Model 3", "Toyota Camry", "Hyundai Ioniq", "Ford Escape", "Kia Niro", "Honda Accord"][index],
+      state,
+      position: interpolate(route, phase),
+      pickup: route[0],
+      dropoff: route[route.length - 1],
+      route,
+      routeProgress: phase,
+      speedMph: Math.round(18 + Math.sin(tick / 8 + index) * 7 + index * 2),
+      etaMinutes: Math.max(1, Math.round((1 - phase) * 28 + delay)),
+      delayMinutes: delay,
+      updatedAt: new Date().toISOString(),
+    };
+  });
+
+  return {
+    city: "Manhattan",
+    generatedAt: new Date().toISOString(),
+    vehicles,
+  };
+}
+
+export const fallbackCenter = center;
