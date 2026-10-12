@@ -1,8 +1,20 @@
 import L from "leaflet";
-import { Activity, Clock3, Gauge, RadioTower, Route, UserRound } from "lucide-react";
+import {
+  Activity,
+  AlertTriangle,
+  Clock3,
+  Crosshair,
+  Gauge,
+  Pause,
+  Play,
+  RadioTower,
+  Route,
+  Search,
+  UserRound,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSimulation } from "./useSimulation";
-import type { VehicleUpdate } from "./types";
+import type { TripState, VehicleUpdate } from "./types";
 
 const mapCenter: L.LatLngExpression = [40.758, -73.9855];
 
@@ -33,8 +45,10 @@ function formatTime(iso: string) {
 }
 
 export function App() {
-  const { frame, connected, source } = useSimulation();
+  const { frame, connected, source, paused, togglePaused } = useSimulation();
   const [selectedId, setSelectedId] = useState("RS-101");
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<"all" | TripState | "delayed">("all");
   const mapRef = useRef<L.Map | null>(null);
   const layersRef = useRef<L.LayerGroup | null>(null);
   const selected = frame.vehicles.find((vehicle) => vehicle.id === selectedId) ?? frame.vehicles[0];
@@ -43,6 +57,25 @@ export function App() {
     () => frame.vehicles.filter((vehicle) => vehicle.state !== "complete").length,
     [frame.vehicles],
   );
+  const delayedTrips = useMemo(
+    () => frame.vehicles.filter((vehicle) => vehicle.delayMinutes >= 3).length,
+    [frame.vehicles],
+  );
+  const filteredVehicles = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+    return frame.vehicles.filter((vehicle) => {
+      const matchesFilter =
+        statusFilter === "all" ||
+        (statusFilter === "delayed" ? vehicle.delayMinutes >= 3 : vehicle.state === statusFilter);
+      const matchesQuery =
+        normalizedQuery.length === 0 ||
+        [vehicle.id, vehicle.driver, vehicle.passenger, vehicle.vehicle]
+          .join(" ")
+          .toLowerCase()
+          .includes(normalizedQuery);
+      return matchesFilter && matchesQuery;
+    });
+  }, [frame.vehicles, query, statusFilter]);
 
   useEffect(() => {
     if (mapRef.current) return;
@@ -103,6 +136,15 @@ export function App() {
     });
   }, [frame.vehicles, selected.id]);
 
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !selected) return;
+    map.panTo([selected.position.lat, selected.position.lng], {
+      animate: true,
+      duration: 0.45,
+    });
+  }, [selected?.id]);
+
   return (
     <main className="app-shell">
       <section className="map-panel">
@@ -122,6 +164,19 @@ export function App() {
           <Metric icon={<Gauge size={18} />} label="Avg speed" value={`${averageSpeed(frame.vehicles)} mph`} />
           <Metric icon={<Clock3 size={18} />} label="Avg ETA" value={`${averageEta(frame.vehicles)} min`} />
         </div>
+        <div className="map-actions">
+          <button onClick={togglePaused} title={paused ? "Resume stream" : "Pause stream"}>
+            {paused ? <Play size={18} /> : <Pause size={18} />}
+            <span>{paused ? "Resume" : "Pause"}</span>
+          </button>
+          <button
+            onClick={() => mapRef.current?.setView([selected.position.lat, selected.position.lng], 14)}
+            title="Center selected trip"
+          >
+            <Crosshair size={18} />
+            <span>Center</span>
+          </button>
+        </div>
       </section>
 
       <aside className="dispatch-panel">
@@ -133,21 +188,65 @@ export function App() {
           <span>{formatTime(frame.generatedAt)}</span>
         </div>
 
+        <div className="controls">
+          <label className="search-box">
+            <Search size={17} />
+            <input
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Search driver, trip, passenger"
+            />
+          </label>
+          <div className="filter-tabs" aria-label="Trip filters">
+            <FilterButton active={statusFilter === "all"} label="All" onClick={() => setStatusFilter("all")} />
+            <FilterButton
+              active={statusFilter === "en_route"}
+              label="En route"
+              onClick={() => setStatusFilter("en_route")}
+            />
+            <FilterButton
+              active={statusFilter === "pickup"}
+              label="Pickup"
+              onClick={() => setStatusFilter("pickup")}
+            />
+            <FilterButton
+              active={statusFilter === "delayed"}
+              label="Delayed"
+              onClick={() => setStatusFilter("delayed")}
+            />
+          </div>
+        </div>
+
+        {delayedTrips > 0 && (
+          <div className="alert-strip">
+            <AlertTriangle size={18} />
+            <span>
+              {delayedTrips} trip{delayedTrips === 1 ? "" : "s"} running behind traffic model
+            </span>
+          </div>
+        )}
+
         <div className="trip-list">
-          {frame.vehicles.map((vehicle) => (
+          {filteredVehicles.map((vehicle) => (
             <button
-              className={`trip-row ${vehicle.id === selected.id ? "selected" : ""}`}
+              className={`trip-row ${vehicle.id === selected.id ? "selected" : ""} ${
+                vehicle.delayMinutes >= 3 ? "delayed" : ""
+              }`}
               key={vehicle.id}
               onClick={() => setSelectedId(vehicle.id)}
             >
               <span className="trip-code">{vehicle.id}</span>
               <span>
                 <strong>{vehicle.driver}</strong>
-                <small>{statusLabels[vehicle.state]}</small>
+                <small>
+                  {statusLabels[vehicle.state]}
+                  {vehicle.delayMinutes >= 3 ? ` - +${vehicle.delayMinutes}m traffic` : ""}
+                </small>
               </span>
               <em>{vehicle.etaMinutes}m</em>
             </button>
           ))}
+          {filteredVehicles.length === 0 && <p className="empty-state">No trips match the current filters.</p>}
         </div>
 
         <div className="detail-panel">
@@ -158,7 +257,7 @@ export function App() {
             <div>
               <h3>{selected.driver}</h3>
               <p>
-                {selected.vehicle} · Passenger {selected.passenger}
+                {selected.vehicle} - Passenger {selected.passenger}
               </p>
             </div>
           </div>
@@ -190,6 +289,14 @@ export function App() {
         </div>
       </aside>
     </main>
+  );
+}
+
+function FilterButton(props: { active: boolean; label: string; onClick: () => void }) {
+  return (
+    <button className={props.active ? "active" : ""} onClick={props.onClick}>
+      {props.label}
+    </button>
   );
 }
 

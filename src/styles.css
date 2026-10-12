@@ -22,6 +22,10 @@ button {
   font: inherit;
 }
 
+input {
+  font: inherit;
+}
+
 .app-shell {
   display: grid;
   grid-template-columns: minmax(0, 1fr) 392px;
@@ -124,6 +128,30 @@ button {
   pointer-events: none;
 }
 
+.map-actions {
+  position: absolute;
+  top: 116px;
+  left: 24px;
+  z-index: 401;
+  display: flex;
+  gap: 10px;
+}
+
+.map-actions button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 42px;
+  padding: 0 14px;
+  color: #172033;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 999px;
+  box-shadow: 0 12px 36px rgba(15, 23, 42, 0.14);
+  cursor: pointer;
+  backdrop-filter: blur(18px);
+}
+
 .metric {
   display: grid;
   grid-template-columns: auto 1fr;
@@ -178,6 +206,73 @@ button {
   font-weight: 700;
 }
 
+.controls {
+  display: grid;
+  gap: 10px;
+}
+
+.search-box {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 0 12px;
+  background: #ffffff;
+  border: 1px solid #dbe5e2;
+  border-radius: 8px;
+}
+
+.search-box svg {
+  color: #64748b;
+}
+
+.search-box input {
+  width: 100%;
+  min-width: 0;
+  color: #172033;
+  background: transparent;
+  border: 0;
+  outline: 0;
+}
+
+.filter-tabs {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.filter-tabs button {
+  min-height: 36px;
+  color: #475569;
+  background: #e8efed;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.filter-tabs button.active {
+  color: #0f766e;
+  background: #ccfbf1;
+  border-color: #99f6e4;
+}
+
+.alert-strip {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  padding: 12px;
+  color: #7c2d12;
+  background: #ffedd5;
+  border: 1px solid #fed7aa;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 800;
+}
+
 .trip-list {
   display: grid;
   gap: 8px;
@@ -209,6 +304,10 @@ button {
   transform: translateY(-1px);
 }
 
+.trip-row.delayed:not(.selected) {
+  border-color: #fed7aa;
+}
+
 .trip-code {
   display: grid;
   place-items: center;
@@ -238,6 +337,16 @@ button {
   color: #111827;
   font-style: normal;
   font-weight: 800;
+}
+
+.empty-state {
+  margin: 4px 0;
+  padding: 18px;
+  color: #64748b;
+  text-align: center;
+  background: #ffffff;
+  border: 1px dashed #cbd5d1;
+  border-radius: 8px;
 }
 
 .detail-panel {
@@ -410,6 +519,11 @@ button {
     top: 14px;
     left: 14px;
     right: 14px;
+  }
+
+  .map-actions {
+    top: 130px;
+    left: 14px;
   }
 
   .metrics {
