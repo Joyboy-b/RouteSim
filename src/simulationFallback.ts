@@ -59,23 +59,36 @@ function tripPhase(tick: number, index: number) {
   const tripDuration = 180 + index * 28;
   const elapsed = Math.max(0, tick + index * 22);
   const progress = Math.min(elapsed / tripDuration, 1);
+  const assignedEndsAt = Math.round(tripDuration * 0.38);
+  const pickupEndsAt = Math.round(tripDuration * 0.48);
+  const enRouteEndsAt = Math.round(tripDuration * 0.92);
   const state: TripState =
-    progress >= 1
+    elapsed >= tripDuration
       ? "complete"
-      : progress >= 0.92
+      : elapsed >= enRouteEndsAt
         ? "dropoff"
-        : progress >= 0.48
+        : elapsed >= pickupEndsAt
           ? "en_route"
-          : progress >= 0.38
+          : elapsed >= assignedEndsAt
             ? "pickup"
             : "assigned";
+  const etaSeconds =
+    state === "complete"
+      ? 0
+      : state === "assigned"
+        ? assignedEndsAt - elapsed
+        : state === "pickup"
+          ? pickupEndsAt - elapsed
+          : state === "en_route"
+            ? enRouteEndsAt - elapsed
+            : tripDuration - elapsed;
 
-  return { progress, state };
+  return { progress, state, etaSeconds: Math.max(0, etaSeconds) };
 }
 
 export function createFallbackFrame(tick: number): SimulationFrame {
   const vehicles: VehicleUpdate[] = routes.map((route, index) => {
-    const { progress, state } = tripPhase(tick, index);
+    const { progress, state, etaSeconds } = tripPhase(tick, index);
     const delay = Math.max(0, Math.round(Math.sin(tick / 16 + index) * 3 + index * 0.35));
     return {
       id: `RS-${101 + index}`,
@@ -89,7 +102,7 @@ export function createFallbackFrame(tick: number): SimulationFrame {
       route,
       routeProgress: progress,
       speedMph: Math.round(18 + Math.sin(tick / 8 + index) * 7 + index * 2),
-      etaMinutes: state === "complete" ? 0 : Math.max(1, Math.round((1 - progress) * 28 + delay)),
+      etaMinutes: etaSeconds + (state === "complete" ? 0 : delay),
       delayMinutes: delay,
       updatedAt: new Date().toISOString(),
     };

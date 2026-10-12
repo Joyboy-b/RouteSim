@@ -162,7 +162,7 @@ export function App() {
         <div className="metrics">
           <Metric icon={<Activity size={18} />} label="Active trips" value={activeTrips.toString()} />
           <Metric icon={<Gauge size={18} />} label="Avg speed" value={`${averageSpeed(frame.vehicles)} mph`} />
-          <Metric icon={<Clock3 size={18} />} label="Avg ETA" value={`${averageEta(frame.vehicles)} min`} />
+          <Metric icon={<Clock3 size={18} />} label="Avg timer" value={`${averageEta(frame.vehicles)}s`} />
         </div>
         <div className="map-actions">
           <button onClick={togglePaused} title={paused ? "Resume stream" : "Pause stream"}>
@@ -243,7 +243,7 @@ export function App() {
                   {vehicle.delayMinutes >= 3 ? ` - +${vehicle.delayMinutes}m traffic` : ""}
                 </small>
               </span>
-              <em>{vehicle.etaMinutes}m</em>
+              <em>{vehicle.etaMinutes}s</em>
             </button>
           ))}
           {filteredVehicles.length === 0 && <p className="empty-state">No trips match the current filters.</p>}
@@ -282,8 +282,8 @@ export function App() {
 
           <div className="stats-grid">
             <Stat label="Speed" value={`${selected.speedMph} mph`} />
-            <Stat label="ETA" value={`${selected.etaMinutes} min`} />
-            <Stat label="Delay" value={`${selected.delayMinutes} min`} />
+            <Stat label="Timer" value={`${selected.etaMinutes}s`} />
+            <Stat label="Delay" value={`${selected.delayMinutes}s`} />
             <Stat label="Update" value={formatTime(selected.updatedAt)} />
           </div>
         </div>

@@ -54,23 +54,36 @@ def trip_phase(tick: int, index: int):
     trip_duration = 180 + index * 28
     elapsed = max(0, tick + index * 22)
     progress = min(elapsed / trip_duration, 1)
-    if progress >= 1:
+    assigned_ends_at = round(trip_duration * 0.38)
+    pickup_ends_at = round(trip_duration * 0.48)
+    en_route_ends_at = round(trip_duration * 0.92)
+    if elapsed >= trip_duration:
         state = "complete"
-    elif progress >= 0.92:
+    elif elapsed >= en_route_ends_at:
         state = "dropoff"
-    elif progress >= 0.48:
+    elif elapsed >= pickup_ends_at:
         state = "en_route"
-    elif progress >= 0.38:
+    elif elapsed >= assigned_ends_at:
         state = "pickup"
     else:
         state = "assigned"
-    return progress, state
+    if state == "complete":
+        eta_seconds = 0
+    elif state == "assigned":
+        eta_seconds = assigned_ends_at - elapsed
+    elif state == "pickup":
+        eta_seconds = pickup_ends_at - elapsed
+    elif state == "en_route":
+        eta_seconds = en_route_ends_at - elapsed
+    else:
+        eta_seconds = trip_duration - elapsed
+    return progress, state, max(0, eta_seconds)
 
 
 def python_frame(tick: int):
     vehicles = []
     for index, route in enumerate(ROUTES):
-        progress, state = trip_phase(tick, index)
+        progress, state, eta_seconds = trip_phase(tick, index)
         delay = max(0, round(math.sin(tick / 16 + index) * 3 + index * 0.35))
         points = [{"lat": lat, "lng": lng} for lat, lng in route]
         vehicles.append(
@@ -86,7 +99,7 @@ def python_frame(tick: int):
                 "route": points,
                 "routeProgress": progress,
                 "speedMph": round(18 + math.sin(tick / 8 + index) * 7 + index * 2),
-                "etaMinutes": 0 if state == "complete" else max(1, round((1 - progress) * 28 + delay)),
+                "etaMinutes": eta_seconds + (0 if state == "complete" else delay),
                 "delayMinutes": delay,
                 "updatedAt": now_iso(),
             }

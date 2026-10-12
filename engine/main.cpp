@@ -22,6 +22,7 @@ struct VehicleSeed {
 struct TripPhase {
   double progress;
   std::string state;
+  int etaSeconds;
 };
 
 Point interpolate(const std::vector<Point>& route, double progress) {
@@ -37,20 +38,23 @@ TripPhase tripPhase(int tick, size_t index) {
   const int tripDuration = 180 + static_cast<int>(index) * 28;
   const int elapsed = std::max(0, tick + static_cast<int>(index) * 22);
   const double progress = std::min(static_cast<double>(elapsed) / static_cast<double>(tripDuration), 1.0);
+  const int assignedEndsAt = static_cast<int>(std::round(tripDuration * 0.38));
+  const int pickupEndsAt = static_cast<int>(std::round(tripDuration * 0.48));
+  const int enRouteEndsAt = static_cast<int>(std::round(tripDuration * 0.92));
 
-  if (progress >= 1.0) {
-    return {progress, "complete"};
+  if (elapsed >= tripDuration) {
+    return {progress, "complete", 0};
   }
-  if (progress >= 0.92) {
-    return {progress, "dropoff"};
+  if (elapsed >= enRouteEndsAt) {
+    return {progress, "dropoff", std::max(0, tripDuration - elapsed)};
   }
-  if (progress >= 0.48) {
-    return {progress, "en_route"};
+  if (elapsed >= pickupEndsAt) {
+    return {progress, "en_route", std::max(0, enRouteEndsAt - elapsed)};
   }
-  if (progress >= 0.38) {
-    return {progress, "pickup"};
+  if (elapsed >= assignedEndsAt) {
+    return {progress, "pickup", std::max(0, pickupEndsAt - elapsed)};
   }
-  return {progress, "assigned"};
+  return {progress, "assigned", std::max(0, assignedEndsAt - elapsed)};
 }
 
 std::string isoNow() {
@@ -91,7 +95,7 @@ int main() {
       const int delay = std::max(0, static_cast<int>(std::round(std::sin(tick / 16.0 + index) * 3 + index * 0.35)));
       const Point position = interpolate(seed.route, phase.progress);
       const int speed = static_cast<int>(std::round(18 + std::sin(tick / 8.0 + index) * 7 + index * 2));
-      const int eta = phase.state == "complete" ? 0 : std::max(1, static_cast<int>(std::round((1 - phase.progress) * 28 + delay)));
+      const int eta = phase.etaSeconds + (phase.state == "complete" ? 0 : delay);
 
       if (index > 0) {
         std::cout << ",";
