@@ -51,10 +51,10 @@ def interpolate(route, progress):
 
 
 def trip_phase(tick: int, index: int):
-    cycle_length = 150 + index * 8
-    cycle_tick = (tick + index * 18) % cycle_length
-    progress = min(cycle_tick / (cycle_length - 18), 1)
-    if cycle_tick >= cycle_length - 10:
+    trip_duration = 180 + index * 28
+    elapsed = max(0, tick + index * 22)
+    progress = min(elapsed / trip_duration, 1)
+    if progress >= 1:
         state = "complete"
     elif progress >= 0.92:
         state = "dropoff"

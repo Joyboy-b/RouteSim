@@ -34,11 +34,11 @@ Point interpolate(const std::vector<Point>& route, double progress) {
 }
 
 TripPhase tripPhase(int tick, size_t index) {
-  const int cycleLength = 150 + static_cast<int>(index) * 8;
-  const int cycleTick = (tick + static_cast<int>(index) * 18) % cycleLength;
-  const double progress = std::min(static_cast<double>(cycleTick) / static_cast<double>(cycleLength - 18), 1.0);
+  const int tripDuration = 180 + static_cast<int>(index) * 28;
+  const int elapsed = std::max(0, tick + static_cast<int>(index) * 22);
+  const double progress = std::min(static_cast<double>(elapsed) / static_cast<double>(tripDuration), 1.0);
 
-  if (cycleTick >= cycleLength - 10) {
+  if (progress >= 1.0) {
     return {progress, "complete"};
   }
   if (progress >= 0.92) {

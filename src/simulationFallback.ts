@@ -56,11 +56,11 @@ function interpolate(route: { lat: number; lng: number }[], progress: number) {
 }
 
 function tripPhase(tick: number, index: number) {
-  const cycleLength = 150 + index * 8;
-  const cycleTick = (tick + index * 18) % cycleLength;
-  const progress = Math.min(cycleTick / (cycleLength - 18), 1);
+  const tripDuration = 180 + index * 28;
+  const elapsed = Math.max(0, tick + index * 22);
+  const progress = Math.min(elapsed / tripDuration, 1);
   const state: TripState =
-    cycleTick >= cycleLength - 10
+    progress >= 1
       ? "complete"
       : progress >= 0.92
         ? "dropoff"
