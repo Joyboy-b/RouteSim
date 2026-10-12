@@ -1,4 +1,4 @@
-import type { SimulationFrame, VehicleUpdate } from "./types";
+import type { SimulationFrame, TripState, VehicleUpdate } from "./types";
 
 const names = ["Ava Chen", "Marco Reed", "Samira Holt", "Diego Cruz", "Nina Patel", "Theo Banks"];
 const passengers = ["L. Morgan", "J. Avery", "M. Stone", "R. Hayes", "K. Brooks", "T. Fisher"];
@@ -55,24 +55,41 @@ function interpolate(route: { lat: number; lng: number }[], progress: number) {
   };
 }
 
+function tripPhase(tick: number, index: number) {
+  const cycleLength = 150 + index * 8;
+  const cycleTick = (tick + index * 18) % cycleLength;
+  const progress = Math.min(cycleTick / (cycleLength - 18), 1);
+  const state: TripState =
+    cycleTick >= cycleLength - 10
+      ? "complete"
+      : progress >= 0.92
+        ? "dropoff"
+        : progress >= 0.48
+          ? "en_route"
+          : progress >= 0.38
+            ? "pickup"
+            : "assigned";
+
+  return { progress, state };
+}
+
 export function createFallbackFrame(tick: number): SimulationFrame {
   const vehicles: VehicleUpdate[] = routes.map((route, index) => {
-    const phase = (tick * (0.007 + index * 0.0014) + index * 0.13) % 1;
+    const { progress, state } = tripPhase(tick, index);
     const delay = Math.max(0, Math.round(Math.sin(tick / 16 + index) * 3 + index * 0.35));
-    const state = phase > 0.92 ? "dropoff" : phase > 0.48 ? "en_route" : phase > 0.38 ? "pickup" : "assigned";
     return {
       id: `RS-${101 + index}`,
       driver: names[index],
       passenger: passengers[index],
       vehicle: ["Tesla Model 3", "Toyota Camry", "Hyundai Ioniq", "Ford Escape", "Kia Niro", "Honda Accord"][index],
       state,
-      position: interpolate(route, phase),
+      position: interpolate(route, progress),
       pickup: route[0],
       dropoff: route[route.length - 1],
       route,
-      routeProgress: phase,
+      routeProgress: progress,
       speedMph: Math.round(18 + Math.sin(tick / 8 + index) * 7 + index * 2),
-      etaMinutes: Math.max(1, Math.round((1 - phase) * 28 + delay)),
+      etaMinutes: state === "complete" ? 0 : Math.max(1, Math.round((1 - progress) * 28 + delay)),
       delayMinutes: delay,
       updatedAt: new Date().toISOString(),
     };

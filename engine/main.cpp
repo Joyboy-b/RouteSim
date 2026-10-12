@@ -19,6 +19,11 @@ struct VehicleSeed {
   std::vector<Point> route;
 };
 
+struct TripPhase {
+  double progress;
+  std::string state;
+};
+
 Point interpolate(const std::vector<Point>& route, double progress) {
   const double scaled = progress * static_cast<double>(route.size() - 1);
   const int startIndex = std::min(static_cast<int>(std::floor(scaled)), static_cast<int>(route.size()) - 2);
@@ -26,6 +31,26 @@ Point interpolate(const std::vector<Point>& route, double progress) {
   const Point start = route[startIndex];
   const Point end = route[startIndex + 1];
   return {start.lat + (end.lat - start.lat) * local, start.lng + (end.lng - start.lng) * local};
+}
+
+TripPhase tripPhase(int tick, size_t index) {
+  const int cycleLength = 150 + static_cast<int>(index) * 8;
+  const int cycleTick = (tick + static_cast<int>(index) * 18) % cycleLength;
+  const double progress = std::min(static_cast<double>(cycleTick) / static_cast<double>(cycleLength - 18), 1.0);
+
+  if (cycleTick >= cycleLength - 10) {
+    return {progress, "complete"};
+  }
+  if (progress >= 0.92) {
+    return {progress, "dropoff"};
+  }
+  if (progress >= 0.48) {
+    return {progress, "en_route"};
+  }
+  if (progress >= 0.38) {
+    return {progress, "pickup"};
+  }
+  return {progress, "assigned"};
 }
 
 std::string isoNow() {
@@ -62,18 +87,17 @@ int main() {
     std::cout << "{\"city\":\"Manhattan\",\"generatedAt\":\"" << timestamp << "\",\"vehicles\":[";
     for (size_t index = 0; index < seeds.size(); ++index) {
       const auto& seed = seeds[index];
-      const double progress = std::fmod(tick * (0.007 + index * 0.0014) + index * 0.13, 1.0);
+      const TripPhase phase = tripPhase(tick, index);
       const int delay = std::max(0, static_cast<int>(std::round(std::sin(tick / 16.0 + index) * 3 + index * 0.35)));
-      const std::string state = progress > 0.92 ? "dropoff" : progress > 0.48 ? "en_route" : progress > 0.38 ? "pickup" : "assigned";
-      const Point position = interpolate(seed.route, progress);
+      const Point position = interpolate(seed.route, phase.progress);
       const int speed = static_cast<int>(std::round(18 + std::sin(tick / 8.0 + index) * 7 + index * 2));
-      const int eta = std::max(1, static_cast<int>(std::round((1 - progress) * 28 + delay)));
+      const int eta = phase.state == "complete" ? 0 : std::max(1, static_cast<int>(std::round((1 - phase.progress) * 28 + delay)));
 
       if (index > 0) {
         std::cout << ",";
       }
       std::cout << "{\"id\":\"RS-" << (101 + index) << "\",\"driver\":\"" << seed.driver << "\",\"passenger\":\""
-                << seed.passenger << "\",\"vehicle\":\"" << seed.vehicle << "\",\"state\":\"" << state << "\",\"position\":";
+                << seed.passenger << "\",\"vehicle\":\"" << seed.vehicle << "\",\"state\":\"" << phase.state << "\",\"position\":";
       writePoint(std::cout, position);
       std::cout << ",\"pickup\":";
       writePoint(std::cout, seed.route.front());
@@ -86,7 +110,7 @@ int main() {
         }
         writePoint(std::cout, seed.route[routeIndex]);
       }
-      std::cout << "],\"routeProgress\":" << progress << ",\"speedMph\":" << speed << ",\"etaMinutes\":" << eta
+      std::cout << "],\"routeProgress\":" << phase.progress << ",\"speedMph\":" << speed << ",\"etaMinutes\":" << eta
                 << ",\"delayMinutes\":" << delay << ",\"updatedAt\":\"" << timestamp << "\"}";
     }
     std::cout << "]}" << std::endl;

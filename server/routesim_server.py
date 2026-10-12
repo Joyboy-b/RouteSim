@@ -50,19 +50,28 @@ def interpolate(route, progress):
     }
 
 
+def trip_phase(tick: int, index: int):
+    cycle_length = 150 + index * 8
+    cycle_tick = (tick + index * 18) % cycle_length
+    progress = min(cycle_tick / (cycle_length - 18), 1)
+    if cycle_tick >= cycle_length - 10:
+        state = "complete"
+    elif progress >= 0.92:
+        state = "dropoff"
+    elif progress >= 0.48:
+        state = "en_route"
+    elif progress >= 0.38:
+        state = "pickup"
+    else:
+        state = "assigned"
+    return progress, state
+
+
 def python_frame(tick: int):
     vehicles = []
     for index, route in enumerate(ROUTES):
-        progress = (tick * (0.007 + index * 0.0014) + index * 0.13) % 1
+        progress, state = trip_phase(tick, index)
         delay = max(0, round(math.sin(tick / 16 + index) * 3 + index * 0.35))
-        if progress > 0.92:
-            state = "dropoff"
-        elif progress > 0.48:
-            state = "en_route"
-        elif progress > 0.38:
-            state = "pickup"
-        else:
-            state = "assigned"
         points = [{"lat": lat, "lng": lng} for lat, lng in route]
         vehicles.append(
             {
@@ -77,7 +86,7 @@ def python_frame(tick: int):
                 "route": points,
                 "routeProgress": progress,
                 "speedMph": round(18 + math.sin(tick / 8 + index) * 7 + index * 2),
-                "etaMinutes": max(1, round((1 - progress) * 28 + delay)),
+                "etaMinutes": 0 if state == "complete" else max(1, round((1 - progress) * 28 + delay)),
                 "delayMinutes": delay,
                 "updatedAt": now_iso(),
             }
@@ -104,7 +113,10 @@ async def stream_from_cpp(websocket, executable: Path):
             line = await process.stdout.readline()
             if not line:
                 break
-            await websocket.send(line.decode("utf-8").strip())
+            try:
+                await websocket.send(line.decode("utf-8").strip())
+            except websockets.ConnectionClosed:
+                break
     finally:
         process.terminate()
         await process.wait()
